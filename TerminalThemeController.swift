@@ -82,9 +82,33 @@ final class TerminalThemeController: ObservableObject {
 
         do {
             try applyTerminalTheme(named: selectedTheme)
+            if isTerminalAppRunning() {
+                setThemeForAllOpenTerminalTabs(theme: selectedTheme)
+            }
         } catch {
             statusMessage = "Could not apply theme '\(selectedTheme)': \(error.localizedDescription)"
         }
+    }
+
+    private func isTerminalAppRunning() -> Bool {
+        let runningApps = NSWorkspace.shared.runningApplications
+        return runningApps.contains { $0.bundleIdentifier == "com.apple.Terminal" }
+    }
+
+    private func setThemeForAllOpenTerminalTabs(theme: String) {
+        let script = """
+        tell application \"Terminal\"
+            repeat with w in windows
+                repeat with t in tabs of w
+                    set current settings of t to settings set \"\(theme)\"
+                end repeat
+            end repeat
+        end tell
+        """
+        let process = Process()
+        process.launchPath = "/usr/bin/osascript"
+        process.arguments = ["-e", script]
+        process.launch()
     }
 
     func startWatchingPlist() {
