@@ -49,12 +49,13 @@ final class TerminalThemeController: ObservableObject {
         do {
             availableThemes = try fetchThemeNamesFromTerminalPreferences()
 
-            if !lightTheme.isEmpty && !availableThemes.contains(lightTheme) {
-                lightTheme = ""
+            // If the current theme is unavailable or not set, default to the first available
+            if lightTheme.isEmpty || !availableThemes.contains(lightTheme) {
+                lightTheme = availableThemes.first ?? ""
             }
 
-            if !darkTheme.isEmpty && !availableThemes.contains(darkTheme) {
-                darkTheme = ""
+            if darkTheme.isEmpty || !availableThemes.contains(darkTheme) {
+                darkTheme = availableThemes.first ?? ""
             }
 
             if availableThemes.isEmpty {
