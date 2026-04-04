@@ -7,7 +7,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
-    @StateObject private var controller = TerminalThemeController()
+    @EnvironmentObject private var controller: TerminalThemeController
     @State private var isHoveringQuit = false
 
     var body: some View {
@@ -92,13 +92,13 @@ struct ContentView: View {
                 controller.darkTheme = first
             }
             controller.applyTheme(for: colorScheme)
-            controller.startWatchingPlist()
-        }
-        .onDisappear {
-            controller.stopWatchingPlist()
         }
         .onChange(of: colorScheme) { _, newScheme in
             controller.applyTheme(for: newScheme)
+            let selectedTheme = newScheme == .dark ? controller.darkTheme : controller.lightTheme
+            if !selectedTheme.isEmpty {
+                controller.setThemeForAllOpenTerminalTabs(theme: selectedTheme)
+            }
         }
         .onChange(of: controller.lightTheme) { _, _ in
             controller.applyTheme(for: colorScheme)

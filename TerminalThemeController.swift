@@ -27,6 +27,7 @@ final class TerminalThemeController: ObservableObject {
     private var plistWatcher: DispatchSourceFileSystemObject?
     private var plistFileDescriptor: CInt = -1
     private var pendingWatcherRefreshWorkItem: DispatchWorkItem?
+    private var appearanceObserver: NSObjectProtocol?
 
     private var terminalPreferencesURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -39,10 +40,21 @@ final class TerminalThemeController: ObservableObject {
 
     init() {
         refreshThemes()
+        startWatchingPlist()
+        startWatchingSystemAppearance()
+        applyTheme(for: currentSystemColorScheme())
     }
 
-    @MainActor deinit {
-        stopWatchingPlist()
+    deinit {
+        plistWatcher?.cancel()
+        plistWatcher = nil
+        pendingWatcherRefreshWorkItem?.cancel()
+        pendingWatcherRefreshWorkItem = nil
+
+        if let appearanceObserver {
+            DistributedNotificationCenter.default().removeObserver(appearanceObserver)
+            self.appearanceObserver = nil
+        }
     }
 
     func refreshThemes() {
@@ -82,9 +94,7 @@ final class TerminalThemeController: ObservableObject {
 
         do {
             try applyTerminalTheme(named: selectedTheme)
-            if isTerminalAppRunning() {
-                setThemeForAllOpenTerminalTabs(theme: selectedTheme)
-            }
+            setThemeForAllOpenTerminalTabs(theme: selectedTheme)
         } catch {
             statusMessage = "Could not apply theme '\(selectedTheme)': \(error.localizedDescription)"
         }
@@ -95,7 +105,10 @@ final class TerminalThemeController: ObservableObject {
         return runningApps.contains { $0.bundleIdentifier == "com.apple.Terminal" }
     }
 
-    private func setThemeForAllOpenTerminalTabs(theme: String) {
+    func setThemeForAllOpenTerminalTabs(theme: String) {
+        if !isTerminalAppRunning() {
+            return
+        }
         let script = """
         tell application \"Terminal\"
             repeat with w in windows
@@ -176,6 +189,32 @@ final class TerminalThemeController: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             self?.startWatchingPlist()
         }
+    }
+
+    private func startWatchingSystemAppearance() {
+        stopWatchingSystemAppearance()
+
+        appearanceObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.applyTheme(for: self.currentSystemColorScheme())
+            }
+        }
+    }
+
+    private func stopWatchingSystemAppearance() {
+        guard let appearanceObserver else { return }
+        DistributedNotificationCenter.default().removeObserver(appearanceObserver)
+        self.appearanceObserver = nil
+    }
+
+    private func currentSystemColorScheme() -> ColorScheme {
+        let style = UserDefaults.standard.string(forKey: "AppleInterfaceStyle")
+        return style == "Dark" ? .dark : .light
     }
 
     private func applyTerminalTheme(named themeName: String) throws {
