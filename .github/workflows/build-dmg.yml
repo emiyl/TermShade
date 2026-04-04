@@ -1,0 +1,55 @@
+name: Build DMG
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project TermShade.xcodeproj \
+            -scheme TermShade \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Package DMG
+        run: |
+          set -euo pipefail
+
+          APP_PATH="build/Build/Products/Release/TermShade.app"
+          STAGING_DIR="dmg-staging"
+          DMG_PATH="artifacts/TermShade.dmg"
+
+          rm -rf "$STAGING_DIR" artifacts
+          mkdir -p "$STAGING_DIR" artifacts
+
+          ditto "$APP_PATH" "$STAGING_DIR/TermShade.app"
+          ln -s /Applications "$STAGING_DIR/Applications"
+
+          hdiutil create \
+            -volname "TermShade" \
+            -srcfolder "$STAGING_DIR" \
+            -ov \
+            -format UDZO \
+            "$DMG_PATH"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TermShade-dmg
+          path: artifacts/TermShade.dmg
+          if-no-files-found: error
