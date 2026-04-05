@@ -20,5 +20,11 @@ struct TermShadeApp: App {
         }
         .defaultSize(width: 380, height: 220)
         .windowResizability(.contentSize)
+
+        Window("TermShade Settings", id: "settings") {
+            SettingsView()
+        }
+        .defaultSize(width: 380, height: 220)
+        .windowResizability(.contentSize)
     }
 }

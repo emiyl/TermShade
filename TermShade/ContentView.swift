@@ -41,6 +41,11 @@ struct ContentView: View {
             
             Divider()
 
+            Button("Settings") {
+                openWindow(id: "settings")
+            }
+            .keyboardShortcut(",", modifiers: .command)
+
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
