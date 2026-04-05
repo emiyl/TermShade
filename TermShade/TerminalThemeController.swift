@@ -42,7 +42,7 @@ final class TerminalThemeController: ObservableObject {
         refreshThemes()
         startWatchingPlist()
         startWatchingSystemAppearance()
-        applyTheme(for: currentSystemColorScheme())
+        applyThemeForCurrentSystemAppearance()
     }
 
     deinit {
@@ -95,9 +95,14 @@ final class TerminalThemeController: ObservableObject {
         do {
             try applyTerminalTheme(named: selectedTheme)
             setThemeForAllOpenTerminalTabs(theme: selectedTheme)
+            statusMessage = ""
         } catch {
             statusMessage = "Could not apply theme '\(selectedTheme)': \(error.localizedDescription)"
         }
+    }
+
+    func applyThemeForCurrentSystemAppearance() {
+        applyTheme(for: currentSystemColorScheme())
     }
 
     private func isTerminalAppRunning() -> Bool {
@@ -201,7 +206,7 @@ final class TerminalThemeController: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.applyTheme(for: self.currentSystemColorScheme())
+                self.applyThemeForCurrentSystemAppearance()
             }
         }
     }
@@ -213,8 +218,13 @@ final class TerminalThemeController: ObservableObject {
     }
 
     private func currentSystemColorScheme() -> ColorScheme {
-        let style = UserDefaults.standard.string(forKey: "AppleInterfaceStyle")
-        return style == "Dark" ? .dark : .light
+        let globalDefaults = UserDefaults(suiteName: UserDefaults.globalDomain)
+        if globalDefaults?.string(forKey: "AppleInterfaceStyle") == "Dark" {
+            return .dark
+        }
+
+        let match = NSApplication.shared.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua])
+        return match == .darkAqua ? .dark : .light
     }
 
     private func applyTerminalTheme(named themeName: String) throws {

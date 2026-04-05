@@ -6,7 +6,6 @@
 import SwiftUI
 
 struct ContentView: View {
-    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var controller: TerminalThemeController
     @State private var isHoveringQuit = false
 
@@ -63,23 +62,16 @@ struct ContentView: View {
             if controller.darkTheme.isEmpty, let first = controller.availableThemes.first {
                 controller.darkTheme = first
             }
-            controller.applyTheme(for: colorScheme)
-        }
-        .onChange(of: colorScheme) { _, newScheme in
-            controller.applyTheme(for: newScheme)
-            let selectedTheme = newScheme == .dark ? controller.darkTheme : controller.lightTheme
-            if !selectedTheme.isEmpty {
-                controller.setThemeForAllOpenTerminalTabs(theme: selectedTheme)
-            }
+            controller.applyThemeForCurrentSystemAppearance()
         }
         .onChange(of: controller.lightTheme) { _, _ in
-            controller.applyTheme(for: colorScheme)
+            controller.applyThemeForCurrentSystemAppearance()
         }
         .onChange(of: controller.darkTheme) { _, _ in
-            controller.applyTheme(for: colorScheme)
+            controller.applyThemeForCurrentSystemAppearance()
         }
         .onChange(of: controller.preferencesRevision) { _, _ in
-            controller.applyTheme(for: colorScheme)
+            controller.applyThemeForCurrentSystemAppearance()
         }
         .padding()
     }
