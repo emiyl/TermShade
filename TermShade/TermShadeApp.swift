@@ -14,5 +14,11 @@ struct TermShadeApp: App {
             ContentView()
                 .environmentObject(controller)
         }
+
+        Window("About TermShade", id: "about") {
+            AboutView()
+        }
+        .defaultSize(width: 380, height: 220)
+        .windowResizability(.contentSize)
     }
 }
