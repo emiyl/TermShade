@@ -13,7 +13,6 @@ struct TermShadeApp: App {
         MenuBarExtra("TermShade", systemImage: "circle.lefthalf.filled") {
             ContentView()
                 .environmentObject(controller)
-                .frame(width: 300)
         }
     }
 }

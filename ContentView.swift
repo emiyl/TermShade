@@ -11,42 +11,29 @@ struct ContentView: View {
     @State private var isHoveringQuit = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("TermShade")
-                .font(.headline)
-
-            Text("Pick Terminal themes for light and dark mode.\nWritten by emiyl.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-            
-            HStack {
-                Text("Light mode theme")
-                Spacer()
-                Picker("Light mode Theme", selection: $controller.lightTheme) {
-                    if controller.isUnavailableSelection(controller.lightTheme) {
-                        Text("\(controller.lightTheme) (unavailable)").tag(controller.lightTheme)
-                    }
-                    ForEach(controller.availableThemes, id: \.self) { theme in
-                        Text(theme).tag(theme)
-                    }
-                }
-                .labelsHidden()
+        VStack {
+            Button(action: {}) {
+                Text("TermShade")
             }
 
-            HStack {
-                Text("Dark mode theme")
-                Spacer()
-                Picker("Dark mode theme", selection: $controller.darkTheme) {
-                    if controller.isUnavailableSelection(controller.darkTheme) {
-                        Text("\(controller.darkTheme) (unavailable)").tag(controller.darkTheme)
-                    }
-                    ForEach(controller.availableThemes, id: \.self) { theme in
-                        Text(theme).tag(theme)
-                    }
+            Divider()
+
+            Picker("Light mode theme", selection: $controller.lightTheme) {
+                if controller.isUnavailableSelection(controller.lightTheme) {
+                    Text("\(controller.lightTheme) (unavailable)").tag(controller.lightTheme)
                 }
-                .labelsHidden()
+                ForEach(controller.availableThemes, id: \.self) { theme in
+                    Text(theme).tag(theme)
+                }
+            }
+
+            Picker("Dark mode theme", selection: $controller.darkTheme) {
+                if controller.isUnavailableSelection(controller.darkTheme) {
+                    Text("\(controller.darkTheme) (unavailable)").tag(controller.darkTheme)
+                }
+                ForEach(controller.availableThemes, id: \.self) { theme in
+                    Text(theme).tag(theme)
+                }
             }
 
             if !controller.statusMessage.isEmpty {
@@ -61,27 +48,12 @@ struct ContentView: View {
             Button {
                 NSApplication.shared.terminate(nil)
             } label: {
-                HStack {
-                    Text("Quit TermShade")
-                    Spacer()
-                    Text("⌘Q")
-                        .foregroundColor(.gray)
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(isHoveringQuit ? Color.accentColor : Color.clear)
-                        .padding(.vertical, -6)
-                        .padding(.horizontal, -8)
-                )
-            }
-            .onHover { hovering in
-                isHoveringQuit = hovering
+                Text("Quit")
             }
             .keyboardShortcut("q", modifiers: .command)
             .buttonStyle(.plain)
             .contentShape(Rectangle())
         }
-        .padding(15)
         .onAppear {
             controller.refreshThemes()
             // Default to first available theme if not set
