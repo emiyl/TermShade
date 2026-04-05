@@ -9,10 +9,50 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    env:
+      APP_NAME: TermShade
+      APP_PATH: build/Build/Products/Release/TermShade.app
+      STAGING_DIR: dmg-staging
+      ARTIFACTS_DIR: artifacts
+      DMG_PATH: artifacts/TermShade.dmg
+      APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Set up signing keychain (optional)
+        if: ${{ env.APPLE_CERTIFICATE_P12_BASE64 != '' && env.APPLE_CERTIFICATE_PASSWORD != '' && env.APPLE_SIGNING_IDENTITY != '' }}
+        run: |
+          set -euo pipefail
+
+          KEYCHAIN_PATH="$RUNNER_TEMP/termshade-signing.keychain-db"
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+
+          echo "$APPLE_CERTIFICATE_P12_BASE64" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "" "$KEYCHAIN_PATH"
+          security set-keychain-settings "$KEYCHAIN_PATH"
+          security unlock-keychain -p "" "$KEYCHAIN_PATH"
+
+          security import "$CERT_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security \
+            -T /usr/bin/xcrun
+
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "" \
+            "$KEYCHAIN_PATH"
+
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
       - name: Build app
         run: |
@@ -26,26 +66,57 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             build
 
+      - name: Sign app (Developer ID)
+        if: ${{ env.APPLE_SIGNING_IDENTITY != '' }}
+        run: |
+          set -euo pipefail
+
+          codesign \
+            --force \
+            --deep \
+            --options runtime \
+            --timestamp \
+            --entitlements TermShade/TermShade.entitlements \
+            --sign "$APPLE_SIGNING_IDENTITY" \
+            "$APP_PATH"
+
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+      - name: Warn if app is unsigned
+        if: ${{ env.APPLE_SIGNING_IDENTITY == '' }}
+        run: |
+          echo "WARNING: APPLE_SIGNING_IDENTITY is not configured."
+          echo "The generated DMG is for local testing only and may be blocked or shown as damaged by Gatekeeper."
+
       - name: Package DMG
         run: |
           set -euo pipefail
 
-          APP_PATH="build/Build/Products/Release/TermShade.app"
-          STAGING_DIR="dmg-staging"
-          DMG_PATH="artifacts/TermShade.dmg"
+          rm -rf "$STAGING_DIR" "$ARTIFACTS_DIR"
+          mkdir -p "$STAGING_DIR" "$ARTIFACTS_DIR"
 
-          rm -rf "$STAGING_DIR" artifacts
-          mkdir -p "$STAGING_DIR" artifacts
-
-          ditto "$APP_PATH" "$STAGING_DIR/TermShade.app"
+          ditto "$APP_PATH" "$STAGING_DIR/$APP_NAME.app"
           ln -s /Applications "$STAGING_DIR/Applications"
 
           hdiutil create \
-            -volname "TermShade" \
+            -volname "$APP_NAME" \
             -srcfolder "$STAGING_DIR" \
             -ov \
             -format UDZO \
             "$DMG_PATH"
+
+      - name: Sign DMG (Developer ID)
+        if: ${{ env.APPLE_SIGNING_IDENTITY != '' }}
+        run: |
+          set -euo pipefail
+
+          codesign \
+            --force \
+            --timestamp \
+            --sign "$APPLE_SIGNING_IDENTITY" \
+            "$DMG_PATH"
+
+          codesign --verify --verbose=2 "$DMG_PATH"
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
@@ -53,3 +124,10 @@ jobs:
           name: TermShade-dmg
           path: artifacts/TermShade.dmg
           if-no-files-found: error
+
+      - name: Cleanup signing keychain
+        if: ${{ always() }}
+        run: |
+          if [[ -n "${KEYCHAIN_PATH:-}" ]]; then
+            security delete-keychain "$KEYCHAIN_PATH" || true
+          fi
