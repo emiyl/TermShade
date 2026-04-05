@@ -11,10 +11,8 @@ struct ContentView: View {
 
     var body: some View {
         VStack {
-            Button {
+            Button("TermShade") {
                 openWindow(id: "about")
-            } label: {
-                Text("TermShade")
             }
 
             Divider()
@@ -39,21 +37,14 @@ struct ContentView: View {
 
             if !controller.statusMessage.isEmpty {
                 Text(controller.statusMessage)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             
             Divider()
-            
-            Button {
+
+            Button("Quit") {
                 NSApplication.shared.terminate(nil)
-            } label: {
-                Text("Quit")
             }
             .keyboardShortcut("q", modifiers: .command)
-            .buttonStyle(.plain)
-            .contentShape(Rectangle())
         }
         .onAppear {
             controller.refreshThemes()
